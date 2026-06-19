@@ -1,0 +1,13 @@
+{
+  "experimental": {
+    "modelContextProtocolServers": [
+      {
+        "transport": {
+          "type": "streamable-http",
+          "url": "https://mcp.daxoom.com/",
+          "headers": { "X-API-Key": "dxm_YOUR_KEY_HERE" }
+        }
+      }
+    ]
+  }
+}

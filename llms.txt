@@ -1,0 +1,119 @@
+# Daxoom
+
+> The verified data layer between businesses and AI agents.
+
+Daxoom is where businesses author their data once and every AI agent — ChatGPT, Perplexity, Copilot, Claude, Gemini, and any MCP-compatible client — queries the same source of truth in real time. The platform exposes both a REST API and an MCP server, returning accurate business profiles, hours, menus, attributes, ratings, and AI-optimized context.
+
+## Documentation
+
+- API docs (interactive): https://www.daxoom.com/docs/
+- OpenAPI spec (machine-readable): https://www.daxoom.com/docs/openapi.yaml
+- Full API reference (markdown): https://www.daxoom.com/llms-full.txt
+
+## Crawlable Business Pages & Sitemap
+
+Every business has a server-rendered HTML page with inline schema.org `LocalBusiness` JSON-LD — directly indexable and groundable without the API:
+
+- Business page: `https://daxoom.com/b/{slug}`
+- Sitemap index (all businesses): https://daxoom.com/sitemap.xml
+
+## MCP Server (Recommended for AI Agents)
+
+Connect directly via MCP (Model Context Protocol):
+
+```json
+{
+  "mcpServers": {
+    "daxoom": {
+      "url": "https://mcp.daxoom.com/",
+      "transport": "http",
+      "headers": { "X-API-Key": "dxm_your_api_key" }
+    }
+  }
+}
+```
+
+### Available MCP Tools
+
+Data retrieval:
+- `search_businesses` — Search by query, category, city, or geo-radius (offset pagination via `_meta.pagination.next_offset`)
+- `get_business` — Full profile with contacts, locations, hours, offerings, media, ratings, attributes, Q&A, AI context
+- `get_business_hours` — Operating hours by day of week
+- `get_business_offerings` — Menu items, services, products with pricing
+- `get_business_attributes` — Amenities, accessibility, parking, policies
+- `get_business_answers` — Pre-written Q&A for common questions
+- `get_business_ai_context` — AI-specific: verified descriptions, canonical facts, corrections, tone preferences, query hints
+- `get_categories` — Full category catalog (175+ categories with schema.org types). Also browsable as MCP Resource `daxoom://categories`.
+
+Feedback loop:
+- `report_incorrect_data` — Report incorrect or outdated data for a business field; human reviewer triages.
+- `submit_review` — Submit an agent-facilitated star rating + review text on behalf of a human consumer (5 trust guards enforced).
+
+Schema explainability:
+- `list_fields` — Enumerate every field on a business profile (core fields, attributes, canonical questions) with kind/category/value_type.
+- `describe_field` — Explain a single field: meaning, value type, allowed values, example, source of truth.
+
+## REST API Quick Start
+
+1. Register at https://app.daxoom.com/register
+2. Create a free API key (3,000 queries/month default; contact us if you need more)
+3. Query the API:
+
+```
+GET https://api.daxoom.com/pubapi/v1/businesses?city=irvine&category=restaurant
+Header: X-API-Key: dxm_your_api_key
+```
+
+API keys have the `dxm_` prefix — store the full key from the create response securely (it's shown only once).
+
+## Authentication
+
+- Public Query API: API key via `X-API-Key` header
+- MCP Server (remote, mcp.daxoom.com/, Streamable HTTP): API key via `X-API-Key` header — same `dxm_` key as the REST API.
+- Analytics & Management: JWT Bearer token via `POST /public/v1/auth/login`
+
+## Key REST Endpoints
+
+- `GET /pubapi/v1/businesses` — Search businesses by category, location, attributes, rating
+- `GET /pubapi/v1/businesses/{id}` — Full business profile (all data composed)
+- `GET /pubapi/v1/businesses/{id}/hours` — Operating hours
+- `GET /pubapi/v1/businesses/{id}/offerings` — Menu, services, products
+- `GET /pubapi/v1/businesses/{id}/attributes` — Structured amenities, policies, accessibility
+- `GET /pubapi/v1/businesses/{id}/answers` — Pre-written Q&A for common AI questions
+- `GET /pubapi/v1/businesses/{id}/ai-context` — AI-specific: descriptions, corrections, disambiguation
+- `GET /pubapi/v1/search?q=...` — Natural language / semantic search
+- `GET /pubapi/v1/categories` — Full category catalog with aliases
+
+## Response Formats
+
+- `application/json` (default) — structured JSON wrapped in `{data, pagination?, meta}`
+- `application/ld+json` — schema.org JSON-LD
+- `text/plain` — AI-friendly natural language narrative
+
+Every business profile carries `verification_level`: `owner_verified`, `claimed`, `enriched_unverified`, or `seed_data` — the trust tier is in the value itself.
+
+## Pagination
+
+Offset-based:
+
+```
+GET /pubapi/v1/businesses?offset=20&limit=20
+```
+
+Default page size 20, max 100. The `pagination` block in the response includes `limit`, `offset`, `has_more`, and (when more results exist) `next_offset` — pass that as `offset` on the next request.
+
+## Rate Limits
+
+Reasonable per-consumer quotas keep the service free and available for everyone. Free developer keys default to 3,000 queries/month (100/day); contact us if your use case needs a higher ceiling.
+
+## Business Categories (175+)
+
+19 top-level categories with 150+ subcategories: Restaurant (35+ subcategories), Health & Wellness, Auto Services, Home Services, Beauty & Personal Care, Legal Services, Financial Services, Fitness & Recreation, Education & Tutoring, Pet Services, Retail, Hospitality, Entertainment, Professional Services, Transport, Furniture, Real Estate, Cannabis, Funeral Services.
+
+## About
+
+Daxoom is the verified data layer between businesses and AI agents. What schema.org is to web crawlers, Daxoom is to AI models. Businesses author data once — through the dashboard or by importing from Google Business Profile — and every AI platform consumes the same source of truth via MCP or REST.
+
+Website: https://www.daxoom.com
+API Base URL: https://api.daxoom.com (public query under /pubapi/v1; auth /public/v1; management/analytics /api/v1)
+MCP Server: https://mcp.daxoom.com/

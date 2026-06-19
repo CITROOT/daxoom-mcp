@@ -1,0 +1,1790 @@
+openapi: "3.1.0"
+info:
+  title: Daxoom API
+  version: v1
+  description: |
+    Daxoom is the authoritative data layer that AI systems query for verified business information.
+    Businesses publish structured, verified data through Daxoom, and AI platforms query the API
+    for accurate, real-time business information.
+
+    ## Authentication
+
+    **Public Query API** uses API key authentication via the `X-API-Key` header.
+    Register at [app.daxoom.com](https://app.daxoom.com/register) to get a free developer key.
+
+    **Analytics & Management APIs** use JWT Bearer token authentication.
+    Obtain a token via `POST /public/v1/auth/login`. Most public-API consumers
+    do not need a JWT — only API key issuance, rotation, and analytics
+    require it.
+
+    ## Rate Limits
+
+    Reasonable per-consumer quotas keep the service free and available for everyone.
+    Free developer keys default to 3,000 queries/month; contact us if your use case
+    needs a higher ceiling.
+
+    Rate limit headers are included on every response:
+    `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
+
+    ## Content Negotiation
+
+    The Public Query API supports three response formats via the `Accept` header:
+    - `application/json` (default) — structured JSON response
+    - `application/ld+json` — schema.org-compatible JSON-LD
+    - `text/plain` — AI-friendly natural language narrative
+
+    ## Pagination
+
+    All list endpoints use offset-based pagination:
+    ```
+    GET /pubapi/v1/businesses?offset=20&limit=20
+    ```
+    Default page size: 20. Maximum: 100. The pagination block in the response
+    includes `limit`, `offset`, `has_more`, and (when more results exist)
+    `next_offset` — pass that value as `offset` on the next request.
+
+    ## Errors
+
+    Errors follow [RFC 7807](https://tools.ietf.org/html/rfc7807) Problem Details format:
+    ```json
+    {
+      "type": "https://api.daxoom.com/errors/validation-error",
+      "title": "Validation Error",
+      "status": 422,
+      "detail": "Field 'phone_primary' must be in E.164 format."
+    }
+    ```
+  contact:
+    name: Daxoom Developer Support
+    email: dev@daxoom.com
+    url: https://www.daxoom.com/docs/
+  license:
+    name: Proprietary
+    url: https://www.daxoom.com/terms
+
+servers:
+  - url: https://api.daxoom.com
+    description: Production (.com)
+  - url: https://api.daxoom.net
+    description: Production (.net alternate)
+  - url: https://api-test.daxoom.net
+    description: Test / Sandbox
+
+tags:
+  - name: Businesses
+    description: Search and retrieve verified business profiles
+  - name: Search
+    description: Semantic and natural language search
+  - name: Categories
+    description: Browse the business category catalog
+  - name: API Keys
+    description: Manage your API keys
+  - name: Analytics
+    description: AI visibility analytics for your businesses
+  - name: System
+    description: Health checks and status
+
+security: []
+
+paths:
+  # ==========================================================================
+  # Public Query API (10 endpoints) — API Key auth
+  # ==========================================================================
+
+  /pubapi/v1/businesses:
+    get:
+      operationId: listBusinesses
+      summary: Search and filter businesses
+      description: |
+        Search businesses by category, location, attributes, rating, and more.
+        Supports geo-spatial queries with radius/bounding box.
+      tags: [Businesses]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/category'
+        - $ref: '#/components/parameters/city'
+        - $ref: '#/components/parameters/country'
+        - $ref: '#/components/parameters/lat'
+        - $ref: '#/components/parameters/lng'
+        - $ref: '#/components/parameters/radius'
+        - $ref: '#/components/parameters/attributes'
+        - $ref: '#/components/parameters/priceRange'
+        - $ref: '#/components/parameters/minRating'
+        - $ref: '#/components/parameters/verifiedOnly'
+        - $ref: '#/components/parameters/q'
+        - $ref: '#/components/parameters/sort'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: List of matching businesses
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessListResponse'
+              example:
+                data:
+                  - id: 1001
+                    name: "Cucina Enoteca"
+                    slug: "cucina-enoteca-irvine"
+                    description: "Modern Italian restaurant and wine bar..."
+                    category_id: "restaurant.italian"
+                    category: "Italian Restaurant"
+                    verification_level: "owner_verified"
+                    completeness_score: 0.97
+                    version: 1
+                    city: "Irvine"
+                    region: "CA"
+                    country: "US"
+                    latitude: 33.6694
+                    longitude: -117.8231
+                    updated_at: "2026-04-20T09:15:00Z"
+                pagination:
+                  limit: 20
+                  offset: 0
+                  total: 20
+                  has_more: true
+                  next_offset: 20
+                meta:
+                  request_id: "req_a1b2c3d4e5f6a7b8"
+                  timestamp: "2026-04-27T14:30:00Z"
+                  version: "v1"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /pubapi/v1/businesses/{id}:
+    get:
+      operationId: getBusiness
+      summary: Get full business profile
+      description: |
+        Returns the complete business profile including contact, location, hours,
+        offerings, media, social links, AI context, attributes, and structured answers.
+        All sub-models are composed into a single response.
+      tags: [Businesses]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/businessId'
+      responses:
+        '200':
+          description: Full business profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDetailResponse'
+              example:
+                data:
+                  id: 1001
+                  name: "Cucina Enoteca"
+                  slug: "cucina-enoteca-irvine"
+                  description: "Modern Italian restaurant and wine bar featuring handmade pasta, wood-fired pizzas, and an extensive wine list in a stylish setting."
+                  category_id: "restaurant.italian"
+                  category: "Italian Restaurant"
+                  schema_type: "ItalianCuisine"
+                  aggregate_rating: 4.6
+                  review_count: 847
+                  verification_level: "owner_verified"
+                  completeness_score: 0.97
+                  phone: "+19495551234"
+                  email: "info@cucinaenoteca.com"
+                  website: "https://www.cucinaenoteca.com"
+                  locations:
+                    - street_address: "532 Spectrum Center Dr"
+                      city: "Irvine"
+                      region: "CA"
+                      postal_code: "92618"
+                      country: "US"
+                      latitude: 33.6694
+                      longitude: -117.8231
+                      timezone: "America/Los_Angeles"
+                  hours:
+                    - day_of_week: "MON"
+                      opens: "11:00"
+                      closes: "21:00"
+                    - day_of_week: "TUE"
+                      opens: "11:00"
+                      closes: "21:00"
+                  ai_context:
+                    ai_summary: "Cucina Enoteca is a modern Italian restaurant in Irvine Spectrum, known for handmade pasta and an extensive wine program. Great for date nights and group dining."
+                    key_differentiators:
+                      - "Handmade pasta made daily"
+                      - "300+ wine list"
+                      - "Private dining room available"
+                meta:
+                  request_id: "req_a1b2c3d4e5f6a7b8"
+                  timestamp: "2026-04-27T14:30:00Z"
+                  version: "v1"
+            application/ld+json:
+              schema:
+                type: object
+              example:
+                "@context": "https://schema.org"
+                "@type": "Restaurant"
+                name: "Cucina Enoteca"
+                telephone: "+19495551234"
+                address:
+                  "@type": "PostalAddress"
+                  streetAddress: "532 Spectrum Center Dr"
+                  addressLocality: "Irvine"
+                  addressRegion: "CA"
+                  postalCode: "92618"
+            text/plain:
+              schema:
+                type: string
+              example: |
+                Cucina Enoteca is a modern Italian restaurant in Irvine Spectrum, CA.
+                Known for handmade pasta made daily and an extensive wine list with 300+ selections.
+                Open Monday through Sunday, 11 AM to 9 PM (later on weekends).
+                Outdoor seating available. Reservations recommended.
+                Rating: 4.6/5 (847 reviews). Owner-verified on Daxoom.
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /pubapi/v1/businesses/{id}/hours:
+    get:
+      operationId: getBusinessHours
+      summary: Get business operating hours
+      description: |
+        Returns regular weekly operating hours and any special/holiday hour overrides.
+        Includes a computed `is_open_now` field based on the business timezone.
+      tags: [Businesses]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/businessId'
+      responses:
+        '200':
+          description: Operating hours and special hours
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoursResponse'
+              example:
+                data:
+                  is_open_now: true
+                  timezone: "America/Los_Angeles"
+                  regular:
+                    - day_of_week: "MON"
+                      opens: "11:00"
+                      closes: "21:00"
+                      is_closed: false
+                    - day_of_week: "TUE"
+                      opens: "11:00"
+                      closes: "21:00"
+                      is_closed: false
+                  special:
+                    - date: "2026-12-25"
+                      is_closed: true
+                      reason: "Christmas Day"
+
+  /pubapi/v1/businesses/{id}/offerings:
+    get:
+      operationId: getBusinessOfferings
+      summary: Get business offerings
+      description: |
+        Returns menu items, services, or products organized by offering groups.
+
+        Optional price-aware query params (`type`, `q`, `min_price`, `max_price`, `sort`) filter
+        and sort the offerings server-side — e.g. "lunch menu under $20" maps to `type=M&max_price=20`.
+        When `q` or a price bound (`min_price`/`max_price`) is set, the response also includes a flat
+        `matched_items` array of the items that passed the filter, each with `offering`, `name`,
+        `price`, `currency`, `price_label`, and `availability` — so an agent can quote a price without
+        walking the nested groups. A `type`-only or `sort`-only request returns the bare offerings
+        array unchanged.
+      tags: [Businesses]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/businessId'
+        - name: type
+          in: query
+          description: "Filter by offering type: `S` = service, `M` = menu section, `P` = product, `K` = package."
+          schema:
+            type: string
+            enum: [S, M, P, K]
+        - name: q
+          in: query
+          description: Free-text filter over item and offering names (e.g. `pasta`, `oil change`, `haircut`).
+          schema:
+            type: string
+          example: "pasta"
+        - name: min_price
+          in: query
+          description: Only return items priced at or above this amount (in the item currency).
+          schema:
+            type: number
+        - name: max_price
+          in: query
+          description: Only return items priced at or below this amount (e.g. `20` for "menu under $20").
+          schema:
+            type: number
+        - name: sort
+          in: query
+          description: Sort items within each offering and the `matched_items` array.
+          schema:
+            type: string
+            enum: [price_asc, price_desc, name]
+      responses:
+        '200':
+          description: |
+            Business offerings. When `q` or a price bound is set the body is
+            `{ offerings, matched_items }`; otherwise it is the bare offerings array.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferingsResponse'
+              example:
+                data:
+                  - id: 1
+                    type: "menu_section"
+                    name: "Handmade Pasta"
+                    items:
+                      - id: 101
+                        name: "Cacio e Pepe"
+                        description: "Bucatini, pecorino romano, black pepper"
+                        price: 22.00
+                        currency: "USD"
+                      - id: 102
+                        name: "Bolognese"
+                        description: "Pappardelle, slow-braised meat ragu"
+                        price: 24.00
+                        currency: "USD"
+                        dietary_flags: []
+
+  /pubapi/v1/businesses/{id}/attributes:
+    get:
+      operationId: getBusinessAttributes
+      summary: Get business attributes
+      description: |
+        Returns structured, queryable boolean and enum properties (amenities, policies, accessibility).
+        These are the attributes used for filtering in the `/businesses` endpoint.
+      tags: [Businesses]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/businessId'
+      responses:
+        '200':
+          description: Business attributes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributesResponse'
+              example:
+                data:
+                  - attribute_id: "wifi"
+                    category: "amenities"
+                    label: "Free WiFi"
+                    value: "true"
+                  - attribute_id: "outdoor_seating"
+                    category: "amenities"
+                    label: "Outdoor Seating"
+                    value: "true"
+                  - attribute_id: "parking"
+                    category: "logistics"
+                    label: "Parking"
+                    value: "valet"
+                    detail: "Complimentary valet parking"
+                  - attribute_id: "wheelchair_accessible"
+                    category: "accessibility"
+                    label: "Wheelchair Accessible"
+                    value: "true"
+
+  /pubapi/v1/businesses/{id}/answers:
+    get:
+      operationId: getBusinessAnswers
+      summary: Get structured Q&A
+      description: |
+        Returns pre-written answers to common questions AI systems receive about this business.
+        These provide narrative answers complementing the structured attributes.
+      tags: [Businesses]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/businessId'
+      responses:
+        '200':
+          description: Structured Q&A
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnswersResponse'
+              example:
+                data:
+                  - question_id: "parking"
+                    question: "Is there parking available?"
+                    answer: "Yes, complimentary valet parking is available at the Irvine Spectrum entrance. Street parking and garage parking are also within a 2-minute walk."
+                    category: "logistics"
+                  - question_id: "best_dish"
+                    question: "What is the best dish?"
+                    answer: "Our handmade Cacio e Pepe is the most popular dish. The burrata appetizer and wood-fired Margherita pizza are also highly recommended."
+                    category: "recommendations"
+
+  /pubapi/v1/businesses/{id}/ai-context:
+    get:
+      operationId: getBusinessAIContext
+      summary: Get AI-specific context
+      description: |
+        Returns AI-optimized metadata including conversation-ready descriptions,
+        canonical facts, hallucination corrections, disambiguation info, and tone preferences.
+        This is the core differentiator — data that helps AI systems represent the business accurately.
+      tags: [Businesses]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/businessId'
+      responses:
+        '200':
+          description: AI context data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIContextResponse'
+              example:
+                data:
+                  ai_description: "Cucina Enoteca is a modern Italian restaurant and wine bar at Irvine Spectrum Center in Orange County, California. The restaurant is known for its handmade pasta program, where all pasta is made fresh daily, and an award-winning wine list featuring over 300 selections."
+                  ai_summary: "Modern Italian restaurant in Irvine Spectrum. Handmade pasta, 300+ wine list, outdoor patio. Great for date nights and groups."
+                  canonical_facts:
+                    - "All pasta is handmade fresh daily on-site"
+                    - "Wine list features over 300 selections"
+                    - "Located at Irvine Spectrum Center"
+                  corrections:
+                    - "Does NOT have a rooftop terrace"
+                    - "Is NOT part of the Hillstone Restaurant Group"
+                  key_differentiators:
+                    - "Handmade pasta made daily"
+                    - "300+ wine list"
+                    - "Private dining room available"
+                  tone_preferences:
+                    style: "professional"
+                    preferred_terms: ["artisanal", "curated", "handcrafted"]
+                    avoided_terms: ["cheap", "fast food", "chain"]
+            text/plain:
+              schema:
+                type: string
+
+  /pubapi/v1/search:
+    get:
+      operationId: semanticSearch
+      summary: Semantic search
+      description: |
+        Natural language search resolved to structured filters.
+        Pass a free-text query and get matching businesses.
+
+        Example: `?q=italian restaurant with outdoor seating near Irvine`
+      tags: [Search]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Natural language search query
+          schema:
+            type: string
+          example: "italian restaurant with outdoor seating near Irvine"
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessListResponse'
+
+  /pubapi/v1/categories:
+    get:
+      operationId: listCategories
+      summary: List category catalog
+      description: |
+        Returns the full hierarchical category catalog with schema.org type mappings
+        and AI-friendly aliases. Use category IDs or aliases to filter `/businesses`.
+      tags: [Categories]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Category catalog
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryListResponse'
+              example:
+                data:
+                  - id: "restaurant"
+                    schema_type: "Restaurant"
+                    label: "Restaurant"
+                    parent_id: null
+                    aliases: ["eatery", "dining", "food"]
+                    children:
+                      - id: "restaurant.italian"
+                        schema_type: "ItalianCuisine"
+                        label: "Italian Restaurant"
+                        aliases: ["italian", "pizzeria", "pizza place", "trattoria"]
+                      - id: "restaurant.japanese"
+                        schema_type: "JapaneseCuisine"
+                        label: "Japanese Restaurant"
+                        aliases: ["japanese", "sushi", "ramen", "izakaya"]
+
+  /health:
+    servers:
+      - url: https://api.daxoom.com
+        description: Production (.com) — note the health endpoint is mounted at the root, not under /v1.
+      - url: https://api.daxoom.net
+        description: Production (.net alternate)
+      - url: https://api-test.daxoom.net
+        description: Test / Sandbox
+    get:
+      operationId: healthCheck
+      summary: Health check
+      description: |
+        Public health check endpoint. No authentication required. Mounted at the
+        host root (not under `/v1`) so VPC-internal probes can hit it without
+        version-coupling.
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /public/v1/auth/login:
+    post:
+      operationId: authLogin
+      summary: Obtain JWT access token
+      description: |
+        Exchange email + password for JWT access and refresh tokens. The access
+        token is required as `Authorization: Bearer …` for the Analytics and
+        API-Key Management endpoints. Most public-API consumers do not need this —
+        they authenticate with an `X-API-Key` header on the Public Query API.
+      tags: [System]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Tokens issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+                  expires_in:
+                    type: integer
+                    description: Access token lifetime in seconds.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==========================================================================
+  # API Keys (4 endpoints) — JWT auth
+  # ==========================================================================
+
+  /api/v1/api-keys:
+    post:
+      operationId: createApiKey
+      summary: Create an API key
+      description: |
+        Creates a new API key scoped to your account. The full key is returned only once
+        in the response — store it securely. Subsequent requests show only the prefix.
+      tags: [API Keys]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key_name]
+              properties:
+                key_name:
+                  type: string
+                  description: Human-readable name for this key
+                  example: "My AI Agent - Production"
+                scopes:
+                  type: string
+                  description: "Comma-separated scopes (default: query)"
+                  example: "query,analytics"
+      responses:
+        '201':
+          description: API key created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      key_name:
+                        type: string
+                      key_prefix:
+                        type: string
+                        description: "First 8 characters (for identification)"
+                      api_key:
+                        type: string
+                        description: "Full API key — shown only once"
+                      scopes:
+                        type: string
+                      created_at:
+                        type: string
+                        format: date-time
+                      expires_at:
+                        type: string
+                        format: date-time
+              example:
+                data:
+                  id: 42
+                  key_name: "My AI Agent - Production"
+                  key_prefix: "dxm_a1b2"
+                  api_key: "dxm_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
+                  scopes: "query,analytics"
+                  created_at: "2026-03-31T10:00:00Z"
+                  expires_at: "2030-03-31T10:00:00Z"
+    get:
+      operationId: listApiKeys
+      summary: List API keys
+      description: Returns all active API keys for your account. Key values are masked — only the prefix is shown.
+      tags: [API Keys]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiKeyInfo'
+
+  /api/v1/api-keys/{id}:
+    delete:
+      operationId: revokeApiKey
+      summary: Revoke an API key
+      description: Immediately revokes the API key. Requests using this key will return 401.
+      tags: [API Keys]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Key revoked successfully
+
+  /api/v1/api-keys/{id}/rotate:
+    post:
+      operationId: rotateApiKey
+      summary: Rotate an API key
+      description: |
+        Issues a new key and sets a 24-hour grace period on the old key.
+        Both keys work during the grace period. After 24 hours, the old key stops working.
+      tags: [API Keys]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: New key issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      new_key:
+                        type: string
+                        description: "New API key — shown only once"
+                      old_key_expires_at:
+                        type: string
+                        format: date-time
+                        description: "Old key valid until this time (24h grace)"
+
+  # ==========================================================================
+  # Analytics API (7 endpoints) — JWT auth
+  # ==========================================================================
+
+  /api/v1/analytics/{businessId}/overview:
+    get:
+      operationId: getAnalyticsOverview
+      summary: Visibility overview
+      description: |
+        Summary of AI visibility metrics: total queries, unique AI platforms,
+        and trend data over configurable time periods.
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/analyticsBusinessId'
+        - $ref: '#/components/parameters/period'
+      responses:
+        '200':
+          description: Visibility overview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsOverviewResponse'
+              example:
+                data:
+                  total_queries: 2847
+                  unique_platforms: 5
+                  period: "30d"
+                  trend:
+                    current: 2847
+                    previous: 1923
+                    change_pct: 48.0
+
+  /api/v1/analytics/{businessId}/queries:
+    get:
+      operationId: getAnalyticsQueries
+      summary: Query volume over time
+      description: Time-series data of API query volume at hourly, daily, or weekly granularity.
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/analyticsBusinessId'
+        - $ref: '#/components/parameters/period'
+        - $ref: '#/components/parameters/granularity'
+      responses:
+        '200':
+          description: Query volume time series
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeSeriesResponse'
+
+  /api/v1/analytics/{businessId}/platforms:
+    get:
+      operationId: getAnalyticsPlatforms
+      summary: AI platform breakdown
+      description: Shows which AI platforms are querying this business and how often.
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/analyticsBusinessId'
+        - $ref: '#/components/parameters/period'
+      responses:
+        '200':
+          description: Platform breakdown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformBreakdownResponse'
+              example:
+                data:
+                  - platform: "ChatGPT"
+                    query_count: 1247
+                    percentage: 43.8
+                  - platform: "Perplexity"
+                    query_count: 612
+                    percentage: 21.5
+                  - platform: "Copilot"
+                    query_count: 389
+                    percentage: 13.7
+
+  /api/v1/analytics/{businessId}/trending:
+    get:
+      operationId: getAnalyticsTrending
+      summary: Trending search queries
+      description: Most popular search queries that led to this business being returned in results.
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/analyticsBusinessId'
+        - $ref: '#/components/parameters/period'
+      responses:
+        '200':
+          description: Trending queries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrendingQueriesResponse'
+              example:
+                data:
+                  - query: "best Italian restaurant in Irvine"
+                    count: 87
+                  - query: "italian restaurant outdoor seating orange county"
+                    count: 54
+                  - query: "pasta restaurant near Spectrum Center"
+                    count: 41
+
+  /api/v1/analytics/{businessId}/top-endpoints:
+    get:
+      operationId: getAnalyticsTopEndpoints
+      summary: Most queried endpoints
+      description: Which API endpoints are queried most for this business (hours, offerings, ai-context, etc.).
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/analyticsBusinessId'
+        - $ref: '#/components/parameters/period'
+      responses:
+        '200':
+          description: Top endpoints
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        endpoint:
+                          type: string
+                        query_count:
+                          type: integer
+
+  /api/v1/analytics/{businessId}/reports:
+    get:
+      operationId: listVisibilityReports
+      summary: List visibility reports
+      description: Returns generated monthly visibility reports for this business.
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/analyticsBusinessId'
+      responses:
+        '200':
+          description: List of reports
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VisibilityReport'
+
+  /api/v1/analytics/{businessId}/reports/{reportId}:
+    get:
+      operationId: getVisibilityReport
+      summary: Download visibility report
+      description: Download a specific monthly visibility report as PDF.
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/analyticsBusinessId'
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Report PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '302':
+          description: Redirect to PDF download URL
+
+# ==============================================================================
+# Components
+# ==============================================================================
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        API key for the Public Query API. Get a free key at
+        [app.daxoom.com/register](https://app.daxoom.com/register).
+        Include in the `X-API-Key` header.
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token obtained via login.
+
+  parameters:
+    businessId:
+      name: id
+      in: path
+      required: true
+      description: Business ID or slug
+      schema:
+        type: string
+      example: "1001"
+
+    analyticsBusinessId:
+      name: businessId
+      in: path
+      required: true
+      description: Business ID
+      schema:
+        type: integer
+      example: 1001
+
+    category:
+      name: category
+      in: query
+      description: "Category ID or alias (e.g., `restaurant.italian`, `pizzeria`)"
+      schema:
+        type: string
+      example: "restaurant.italian"
+
+    city:
+      name: city
+      in: query
+      description: City name
+      schema:
+        type: string
+      example: "Irvine"
+
+    country:
+      name: country
+      in: query
+      description: Country code (ISO 3166-1 alpha-2)
+      schema:
+        type: string
+      example: "US"
+
+    lat:
+      name: lat
+      in: query
+      description: Latitude for geo search
+      schema:
+        type: number
+        format: double
+      example: 33.6694
+
+    lng:
+      name: lng
+      in: query
+      description: Longitude for geo search
+      schema:
+        type: number
+        format: double
+      example: -117.8231
+
+    radius:
+      name: radius
+      in: query
+      description: "Search radius in meters (default 5000)"
+      schema:
+        type: number
+        format: double
+        minimum: 1
+      example: 5000
+
+    attributes:
+      name: attributes
+      in: query
+      description: "Comma-separated attribute filters (e.g., `wifi,outdoor_seating`)"
+      schema:
+        type: string
+      example: "wifi,outdoor_seating,wheelchair_accessible"
+
+    priceRange:
+      name: price_range
+      in: query
+      description: "Price range filter: `$`, `$$`, `$$$`, `$$$$`"
+      schema:
+        type: string
+        enum: ["$", "$$", "$$$", "$$$$"]
+
+    minRating:
+      name: min_rating
+      in: query
+      description: Minimum aggregate rating (1.0–5.0)
+      schema:
+        type: number
+        minimum: 1.0
+        maximum: 5.0
+
+    verifiedOnly:
+      name: verified_only
+      in: query
+      description: Only return owner-verified profiles
+      schema:
+        type: boolean
+        default: false
+
+    q:
+      name: q
+      in: query
+      description: Free-text search query
+      schema:
+        type: string
+
+    sort:
+      name: sort
+      in: query
+      description: Sort order
+      schema:
+        type: string
+        enum: [relevance, rating, distance, name]
+        default: relevance
+
+    offset:
+      name: offset
+      in: query
+      description: Pagination offset — number of rows to skip. Use the `next_offset` from the previous response to advance.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+    limit:
+      name: limit
+      in: query
+      description: Page size (default 20, max 100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+    period:
+      name: period
+      in: query
+      description: Time period for analytics
+      schema:
+        type: string
+        enum: [7d, 30d, 90d, custom]
+        default: 30d
+
+    granularity:
+      name: granularity
+      in: query
+      description: Data granularity
+      schema:
+        type: string
+        enum: [hourly, daily, weekly]
+        default: daily
+
+  schemas:
+    # Response wrappers
+    BusinessListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BusinessSummary'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    BusinessDetailResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Business'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    HoursResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            is_open_now:
+              type: boolean
+            timezone:
+              type: string
+            regular:
+              type: array
+              items:
+                $ref: '#/components/schemas/OperatingHours'
+            special:
+              type: array
+              items:
+                $ref: '#/components/schemas/SpecialHours'
+
+    OfferingsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Offering'
+
+    AttributesResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BusinessAttribute'
+
+    AnswersResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BusinessAnswer'
+
+    AIContextResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/AIContext'
+
+    CategoryListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+
+    AnalyticsOverviewResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            total_queries:
+              type: integer
+            unique_platforms:
+              type: integer
+            period:
+              type: string
+            trend:
+              type: object
+              properties:
+                current:
+                  type: integer
+                previous:
+                  type: integer
+                change_pct:
+                  type: number
+
+    TimeSeriesResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              query_count:
+                type: integer
+
+    PlatformBreakdownResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              platform:
+                type: string
+              query_count:
+                type: integer
+              percentage:
+                type: number
+
+    TrendingQueriesResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              query:
+                type: string
+              count:
+                type: integer
+
+    # Core models
+    BusinessSummary:
+      type: object
+      description: Abbreviated business profile for list results.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        category_id:
+          type: string
+          description: "Hierarchical category id, e.g. `restaurant.italian`."
+          example: "restaurant.italian"
+        category:
+          type: string
+          description: "Human-readable category label."
+          example: "Italian Restaurant"
+        verification_level:
+          type: string
+          enum: [owner_verified, enriched_unverified, seed_data, claimed]
+        completeness_score:
+          type: number
+          description: "Data completeness score (0.0–1.0)."
+        version:
+          type: integer
+        city:
+          type: string
+        region:
+          type: string
+        country:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        updated_at:
+          type: string
+          format: date-time
+
+    Business:
+      type: object
+      description: Full business profile. Contact fields (phone/email/website) are flattened onto the root for convenience; nested locations/hours/etc. are arrays.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        legal_name:
+          type: string
+        alternate_names:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        category_id:
+          type: string
+          example: "restaurant.italian"
+        category:
+          type: string
+          example: "Italian Restaurant"
+        schema_type:
+          type: string
+          example: "ItalianCuisine"
+        status:
+          type: string
+        verification_level:
+          type: string
+          enum: [owner_verified, enriched_unverified, seed_data, claimed]
+        completeness_score:
+          type: number
+          description: "Data completeness score (0.0–1.0)."
+        version:
+          type: integer
+        price_range:
+          type: string
+          enum: ["$", "$$", "$$$", "$$$$"]
+        date_established:
+          type: string
+        payment_accepted:
+          type: string
+        languages_spoken:
+          type: string
+        aggregate_rating:
+          type: number
+        review_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        verified_at:
+          type: string
+          format: date-time
+        phone:
+          type: string
+          description: "E.164 format. Flattened from the contact sub-model."
+        phone_secondary:
+          type: string
+        email:
+          type: string
+          format: email
+        website:
+          type: string
+          format: uri
+        menu_url:
+          type: string
+          format: uri
+        contact_urls:
+          type: array
+          items:
+            type: object
+            properties:
+              url_type:
+                type: string
+              provider:
+                type: string
+              url:
+                type: string
+                format: uri
+        locations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Location'
+        hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperatingHours'
+        offerings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Offering'
+        media:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaRef'
+        social_links:
+          type: array
+          items:
+            $ref: '#/components/schemas/SocialLink'
+        ai_context:
+          $ref: '#/components/schemas/AIContext'
+        attributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/BusinessAttribute'
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/BusinessAnswer'
+
+    Location:
+      type: object
+      properties:
+        street_address:
+          type: string
+        address_line_2:
+          type: string
+        city:
+          type: string
+        region:
+          type: string
+        postal_code:
+          type: string
+        country:
+          type: string
+          description: "ISO 3166-1 alpha-2"
+        latitude:
+          type: number
+        longitude:
+          type: number
+        timezone:
+          type: string
+          description: "IANA timezone (e.g., America/Los_Angeles)"
+        location_type:
+          type: string
+          enum: [storefront, service_area, hybrid, virtual]
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "restaurant.italian"
+        schema_type:
+          type: string
+          example: "ItalianCuisine"
+        label:
+          type: string
+          example: "Italian Restaurant"
+        parent_id:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+
+    OperatingHours:
+      type: object
+      properties:
+        day_of_week:
+          type: string
+          enum: [MON, TUE, WED, THU, FRI, SAT, SUN]
+        opens:
+          type: string
+          description: "HH:MM format"
+          example: "11:00"
+        closes:
+          type: string
+          description: "HH:MM format"
+          example: "21:00"
+        is_closed:
+          type: boolean
+        label:
+          type: string
+
+    SpecialHours:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        opens:
+          type: string
+        closes:
+          type: string
+        is_closed:
+          type: boolean
+        reason:
+          type: string
+
+    Offering:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [product, service, menu_section, package]
+        name:
+          type: string
+        description:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OfferingItem'
+
+    OfferingItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        currency:
+          type: string
+        price_label:
+          type: string
+        dietary_flags:
+          type: array
+          items:
+            type: string
+        availability:
+          type: string
+
+    MediaRef:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        alt_text:
+          type: string
+        category:
+          type: string
+          enum: [interior, exterior, product, team, food, other]
+        width:
+          type: integer
+        height:
+          type: integer
+        mime_type:
+          type: string
+
+    SocialLink:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum: [instagram, facebook, x_twitter, linkedin, youtube, tiktok, yelp, other]
+        url:
+          type: string
+          format: uri
+
+    AIContext:
+      type: object
+      description: AI-optimized metadata for accurate business representation
+      properties:
+        ai_description:
+          type: string
+          description: "Conversation-optimized description for AI systems"
+        ai_summary:
+          type: string
+          description: "One-paragraph summary for quick AI responses"
+        canonical_facts:
+          type: array
+          items:
+            type: string
+          description: "Verified facts AI should always include"
+        corrections:
+          type: array
+          items:
+            type: string
+          description: "Explicit negations to counter known hallucinations"
+        query_hints:
+          type: array
+          items:
+            type: string
+        key_differentiators:
+          type: array
+          items:
+            type: string
+        tone_preferences:
+          type: object
+          properties:
+            style:
+              type: string
+              enum: [formal, casual, professional, friendly]
+            preferred_terms:
+              type: array
+              items:
+                type: string
+            avoided_terms:
+              type: array
+              items:
+                type: string
+
+    BusinessAttribute:
+      type: object
+      properties:
+        attribute_id:
+          type: string
+        category:
+          type: string
+          description: Attribute family. The catalog covers amenities, logistics, dining, accessibility, policies, healthcare, auto, retail.
+        label:
+          type: string
+        value:
+          type: string
+        detail:
+          type: string
+
+    BusinessAnswer:
+      type: object
+      properties:
+        question_id:
+          type: string
+        question:
+          type: string
+        answer:
+          type: string
+        category:
+          type: string
+
+    RatingSource:
+      type: object
+      properties:
+        source:
+          type: string
+        rating:
+          type: number
+        review_count:
+          type: integer
+
+    ApiKeyInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        key_name:
+          type: string
+        key_prefix:
+          type: string
+        scopes:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+
+    VisibilityReport:
+      type: object
+      properties:
+        id:
+          type: integer
+        report_month:
+          type: string
+          format: date
+        total_queries:
+          type: integer
+        unique_consumers:
+          type: integer
+        generated_at:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        limit:
+          type: integer
+          description: Page size used for this response.
+        offset:
+          type: integer
+          description: Offset used for this response.
+        total:
+          type: integer
+          description: Number of rows returned on this page (not the full result-set size).
+        has_more:
+          type: boolean
+          description: True when at least one more page exists.
+        next_offset:
+          type: integer
+          description: Offset to use for the next request. Present only when `has_more` is true.
+
+    Meta:
+      type: object
+      properties:
+        request_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+
+    Error:
+      type: object
+      description: "RFC 7807 Problem Details"
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: "https://api.daxoom.com/errors/bad-request"
+            title: "Bad Request"
+            status: 400
+            detail: "Invalid query parameter 'radius'. Expected a number in meters (e.g. 5000)."
+
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: "https://api.daxoom.com/errors/unauthorized"
+            title: "Unauthorized"
+            status: 401
+            detail: "Invalid or expired API key."
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: "https://api.daxoom.com/errors/not-found"
+            title: "Not Found"
+            status: 404
+            detail: "Business with ID '9999' not found."
+
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until the rate limit resets
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: "https://api.daxoom.com/errors/rate-limited"
+            title: "Rate Limit Exceeded"
+            status: 429
+            detail: "Monthly query quota exceeded for this API key."

@@ -1,0 +1,135 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/server.json",
+  "name": "daxoom",
+  "displayName": "Daxoom — AI-Visibility Business Data",
+  "version": "1.1.0",
+  "description": "Authoritative business data API built for AI agents. Verified profiles authored by business owners, every response carries provenance (verification level, completeness score, freshness, upstream sources). 12 tools for search/profile/hours/offerings/AI-context plus a feedback loop (report incorrect data, submit consumer-facing reviews) and schema explainability (list/describe fields).",
+  "tagline": "What schema.org is to web crawlers, Daxoom is to AI agents.",
+  "license": "LicenseRef-Proprietary",
+  "homepage": "https://daxoom.com",
+  "documentation": "https://daxoom.com/docs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CITROOT/daxoom-mcp"
+  },
+  "author": {
+    "name": "CITROOT LLC",
+    "url": "https://daxoom.com"
+  },
+  "categories": [
+    "data-api",
+    "business",
+    "local-search",
+    "knowledge-graph",
+    "agent-tools"
+  ],
+  "tags": [
+    "business-data",
+    "local-businesses",
+    "ai-visibility",
+    "verified-data",
+    "schema-org",
+    "json-ld",
+    "places",
+    "directory",
+    "owner-authored"
+  ],
+  "transports": {
+    "http": {
+      "url": "https://mcp.daxoom.com/",
+      "transport": "streamable-http",
+      "headers": {
+        "X-API-Key": "${DAXOOM_API_KEY}"
+      },
+      "description": "Remote Streamable HTTP transport. Requires an API key from https://daxoom.com/developer (free Developer tier: 3,000 queries/month). Same key gates the REST /pubapi/* endpoints."
+    }
+  },
+  "tools": [
+    {
+      "name": "search_businesses",
+      "description": "Paginated business search by name, category, city, or geo radius."
+    },
+    {
+      "name": "get_business",
+      "description": "Full business profile with provenance metadata."
+    },
+    {
+      "name": "get_business_hours",
+      "description": "Operating hours by day of week."
+    },
+    {
+      "name": "get_business_offerings",
+      "description": "Menu items, services, products."
+    },
+    {
+      "name": "get_business_attributes",
+      "description": "Amenities, accessibility, parking, policies."
+    },
+    {
+      "name": "get_business_answers",
+      "description": "Pre-written Q&A authored by the business owner."
+    },
+    {
+      "name": "get_business_ai_context",
+      "description": "Verified facts, canonical corrections, tone preferences, query hints — the LLM grounding payload."
+    },
+    {
+      "name": "get_categories",
+      "description": "Business taxonomy with schema.org type mapping."
+    },
+    {
+      "name": "report_incorrect_data",
+      "description": "Flag stale or wrong fields for human triage. No auto-changes."
+    },
+    {
+      "name": "submit_review",
+      "description": "Submit a consumer star rating + optional text (5 trust guards: key age, prior queries, lifetime cap, monthly cap)."
+    },
+    {
+      "name": "list_fields",
+      "description": "Enumerate every field available on a business profile (core + attributes + Q&A)."
+    },
+    {
+      "name": "describe_field",
+      "description": "Explain a single field — meaning, type, allowed values, source of truth."
+    }
+  ],
+  "resources": [
+    {
+      "uri": "daxoom://categories",
+      "description": "Business taxonomy dump."
+    },
+    {
+      "uri": "daxoom://schema/business",
+      "description": "Full field catalog (core + attributes + questions, merged)."
+    },
+    {
+      "uri": "daxoom://schema/attributes",
+      "description": "Queryable attribute catalog."
+    },
+    {
+      "uri": "daxoom://schema/questions",
+      "description": "Canonical Q&A prompts."
+    },
+    {
+      "uri": "daxoom://stats",
+      "description": "Platform-wide totals by verification level + top categories."
+    }
+  ],
+  "envelope": {
+    "shape": "{data, _meta}",
+    "meta_fields": [
+      "generated_at (RFC3339)",
+      "source (always \"daxoom\")",
+      "provenance (single-business tools): verification_level (O/E/S/C), completeness_score (0.00–1.00), updated_at, verified_at, sources[]",
+      "pagination (list tools): limit, offset, total, has_more, next_offset"
+    ]
+  },
+  "differentiators": [
+    "Owner-authored verified data with trust-guarded, agent-verified reviews",
+    "AI-native fields: canonical_facts, query_hints, tone_style, disambiguation",
+    "Public business data is public; owner-entered data stays the owner's (contributed for AI-agent use); Daxoom-generated data is proprietary — all served under the Daxoom API Terms",
+    "Cross-platform — one profile feeds ChatGPT, Claude, Perplexity, Gemini, indie agents",
+    "Citation-friendly — every payload has a stable daxoom URL the agent can surface as source"
+  ]
+}

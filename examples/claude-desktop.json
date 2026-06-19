@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "daxoom": {
+      "url": "https://mcp.daxoom.com/",
+      "transport": "http",
+      "headers": { "X-API-Key": "dxm_YOUR_KEY_HERE" }
+    }
+  }
+}

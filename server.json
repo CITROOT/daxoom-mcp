@@ -1,0 +1,24 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "com.daxoom/daxoom",
+  "description": "Authoritative, owner-verified business data for AI agents. Search, full profiles, hours, offerings and prices, attributes, owner Q&A, and AI-grounding context — every response carries provenance (verification level, completeness, freshness, sources). 12 tools + 5 resources.",
+  "version": "1.1.0",
+  "repository": {
+    "url": "https://github.com/CITROOT/daxoom-mcp",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.daxoom.com/",
+      "headers": [
+        {
+          "name": "X-API-Key",
+          "description": "Daxoom API key (dxm_ prefix). Free Developer tier (3,000 queries/month) at https://daxoom.com/developer.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

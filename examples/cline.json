@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "daxoom": {
+      "url": "https://mcp.daxoom.com/",
+      "transport": "http",
+      "headers": { "X-API-Key": "dxm_YOUR_KEY_HERE" },
+      "disabled": false,
+      "autoApprove": ["search_businesses", "get_business", "get_business_ai_context"]
+    }
+  }
+}

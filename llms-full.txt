@@ -1,0 +1,448 @@
+# Daxoom API — Full Reference
+
+Daxoom is the verified data layer between businesses and AI agents — author once, every AI agent queries the same source of truth in real time, via MCP or REST. This document is the complete API reference for developers and AI tools.
+
+Base URL: https://api.daxoom.com
+OpenAPI Spec: https://www.daxoom.com/docs/openapi.yaml
+
+The API has three surfaces, each under its own path prefix:
+- Public Query API (API key):  `/pubapi/v1/...`
+- Auth (login; no token):      `/public/v1/...`
+- Management & Analytics (JWT): `/api/v1/...`
+Health check: `/health`
+
+---
+
+## Authentication
+
+### API Key (Public Query API)
+Pass your API key in the `X-API-Key` header:
+```
+GET /pubapi/v1/businesses?city=irvine
+X-API-Key: dxm_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+```
+Keys have the `dxm_` prefix and 32 hex characters. The full key is returned exactly
+once at creation — store it securely. Register at https://app.daxoom.com/register
+to get a free developer key (3,000 queries/month).
+
+### JWT Bearer Token (Analytics & Management)
+```
+POST /public/v1/auth/login
+{ "email": "you@example.com", "password": "..." }
+→ { "access_token": "eyJ...", "refresh_token": "..." }
+
+GET /api/v1/analytics/1001/overview
+Authorization: Bearer eyJ...
+```
+
+---
+
+## Rate Limits
+
+Reasonable per-consumer quotas apply to keep the service free and available
+for everyone. Contact us if your use case needs a higher ceiling.
+
+Response headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+HTTP 429 with `Retry-After` header when exceeded.
+
+---
+
+## Response Formats
+
+Set the `Accept` header to choose format:
+- `application/json` (default) — structured JSON
+- `application/ld+json` — schema.org JSON-LD
+- `text/plain` — AI-friendly natural language narrative
+
+---
+
+## Pagination
+
+Offset-based. Default page size: 20. Max: 100.
+```
+GET /pubapi/v1/businesses?offset=20&limit=20
+```
+
+Response:
+```json
+{
+  "data": [...],
+  "pagination": {
+    "limit": 20,
+    "offset": 0,
+    "total": 20,
+    "has_more": true,
+    "next_offset": 20
+  },
+  "meta": {
+    "request_id": "req_a1b2c3d4e5f6a7b8",
+    "timestamp": "2026-04-27T14:30:00Z",
+    "version": "v1"
+  }
+}
+```
+
+`total` is the number of rows on this page (not the full result-set size). Use
+`has_more` + `next_offset` to advance.
+
+---
+
+## Error Format (RFC 7807)
+
+```json
+{
+  "type": "https://api.daxoom.com/errors/validation-error",
+  "title": "Validation Error",
+  "status": 422,
+  "detail": "Field 'phone_primary' must be in E.164 format.",
+  "errors": [
+    { "field": "phone_primary", "message": "Must be in E.164 format" }
+  ]
+}
+```
+
+---
+
+## Endpoints
+
+### Public Query API (API Key auth)
+
+#### GET /pubapi/v1/businesses
+Search and filter businesses.
+
+Query parameters:
+- `category` (string) — Category ID or alias, e.g. `restaurant.italian` or `pizzeria`
+- `city` (string) — City name, e.g. `Irvine`
+- `country` (string) — ISO 3166-1 alpha-2 code, e.g. `US`
+- `lat` (number) — Latitude for geo search
+- `lng` (number) — Longitude for geo search
+- `radius` (number) — Search radius in meters (default 5000)
+- `attributes` (string) — Comma-separated attribute IDs that must all be present, e.g. `wifi,outdoor_seating`
+- `price_range` (string) — `$`, `$$`, `$$$`, or `$$$$`
+- `min_rating` (number) — Minimum rating 1.0–5.0
+- `verified_only` (boolean) — Only owner-verified profiles
+- `q` (string) — Free-text search across name and description
+- `sort` (string) — `relevance` (default), `rating`, `distance`, `name`
+- `offset` (integer) — Pagination offset (default 0)
+- `limit` (integer) — Page size, default 20, max 100
+
+Example:
+```
+GET /pubapi/v1/businesses?city=irvine&category=restaurant.italian&attributes=outdoor_seating&min_rating=4.0&limit=10
+```
+
+Response: `{data: [...summaries], pagination: {limit, offset, total, has_more, next_offset}, meta: {request_id, timestamp, version}}`. Each summary has id, name, slug, description, category_id, category, verification_level, completeness_score, city/region/country/lat/lng, updated_at.
+
+---
+
+#### GET /pubapi/v1/businesses/{id}
+Full business profile with all sub-models composed.
+
+Response includes: contact (flattened onto the root), locations, hours, offerings, media, social_links, ai_context, attributes, answers, ratings.
+
+Supports three formats via Accept header:
+- JSON: structured object
+- JSON-LD: schema.org compatible
+- text/plain: natural language narrative
+
+Example response (JSON):
+```json
+{
+  "data": {
+    "id": 1001,
+    "name": "Cucina Enoteca",
+    "slug": "cucina-enoteca-irvine",
+    "description": "Modern Italian restaurant and wine bar...",
+    "category_id": "restaurant.italian",
+    "category": "Italian Restaurant",
+    "schema_type": "ItalianCuisine",
+    "aggregate_rating": 4.6,
+    "review_count": 847,
+    "verification_level": "owner_verified",
+    "completeness_score": 0.97,
+    "phone": "+19495551234",
+    "website": "https://www.cucinaenoteca.com",
+    "locations": [
+      {
+        "street_address": "532 Spectrum Center Dr",
+        "city": "Irvine",
+        "region": "CA",
+        "country": "US",
+        "latitude": 33.6694,
+        "longitude": -117.8231,
+        "timezone": "America/Los_Angeles"
+      }
+    ],
+    "ai_context": {
+      "ai_summary": "Modern Italian restaurant in Irvine Spectrum. Handmade pasta, 300+ wine list.",
+      "canonical_facts": ["All pasta is handmade fresh daily"],
+      "corrections": ["Does NOT have a rooftop terrace"]
+    }
+  },
+  "meta": {
+    "request_id": "req_a1b2c3d4e5f6a7b8",
+    "timestamp": "2026-04-27T14:30:00Z",
+    "version": "v1"
+  }
+}
+```
+
+Example response (text/plain):
+```
+Cucina Enoteca is a modern Italian restaurant in Irvine Spectrum, CA.
+Known for handmade pasta made daily and an extensive wine list with 300+ selections.
+Open Monday through Sunday, 11 AM to 9 PM. Outdoor seating available.
+Rating: 4.6/5 (847 reviews). Owner-verified on Daxoom.
+```
+
+---
+
+#### GET /pubapi/v1/businesses/{id}/hours
+Operating hours — a flat array of weekly entries.
+
+```json
+{
+  "data": [
+    { "day_of_week": "MON", "opens": "11:00", "closes": "21:00", "is_closed": false, "label": "" },
+    { "day_of_week": "TUE", "opens": "11:00", "closes": "21:00", "is_closed": false, "label": "" }
+  ]
+}
+```
+
+---
+
+#### GET /pubapi/v1/businesses/{id}/offerings
+Menu items, services, or products organized by groups.
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "offering_type": "menu_section",
+      "name": "Handmade Pasta",
+      "description": "",
+      "items": [
+        {
+          "name": "Cacio e Pepe",
+          "description": "Bucatini, pecorino romano, black pepper",
+          "price": 22.00,
+          "currency": "USD"
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+#### GET /pubapi/v1/businesses/{id}/attributes
+Structured boolean/enum properties for filtering.
+
+```json
+{
+  "data": [
+    { "attribute_id": "wifi", "category": "amenities", "label": "Free WiFi", "value": "true" },
+    { "attribute_id": "parking", "category": "logistics", "label": "Parking", "value": "valet", "detail": "Complimentary valet" },
+    { "attribute_id": "wheelchair_accessible", "category": "accessibility", "label": "Wheelchair Accessible", "value": "true" }
+  ]
+}
+```
+
+---
+
+#### GET /pubapi/v1/businesses/{id}/answers
+Pre-written Q&A for common AI questions.
+
+```json
+{
+  "data": [
+    {
+      "question_id": "parking",
+      "question": "Is there parking available?",
+      "answer": "Yes, complimentary valet parking at the Irvine Spectrum entrance.",
+      "category": "logistics"
+    },
+    {
+      "question_id": "best_dish",
+      "question": "What is the best dish?",
+      "answer": "Our handmade Cacio e Pepe is the most popular dish.",
+      "category": "recommendations"
+    }
+  ]
+}
+```
+
+---
+
+#### GET /pubapi/v1/businesses/{id}/ai-context
+AI-specific metadata for accurate representation.
+
+```json
+{
+  "data": {
+    "ai_description": "Cucina Enoteca is a modern Italian restaurant and wine bar at Irvine Spectrum...",
+    "ai_summary": "Modern Italian restaurant in Irvine Spectrum. Handmade pasta, 300+ wine list.",
+    "canonical_facts": [
+      "All pasta is handmade fresh daily on-site",
+      "Wine list features over 300 selections"
+    ],
+    "corrections": [
+      "Does NOT have a rooftop terrace",
+      "Is NOT part of the Hillstone Restaurant Group"
+    ],
+    "key_differentiators": ["Handmade pasta", "300+ wine list", "Private dining room"],
+    "tone_preferences": {
+      "style": "professional",
+      "preferred_terms": ["artisanal", "curated"],
+      "avoided_terms": ["cheap", "fast food"]
+    }
+  }
+}
+```
+
+---
+
+#### GET /pubapi/v1/search
+Semantic / natural language search.
+
+```
+GET /pubapi/v1/search?q=italian restaurant with outdoor seating near Irvine
+```
+
+Returns the same format as `GET /pubapi/v1/businesses` with relevance-ranked results.
+
+---
+
+#### GET /pubapi/v1/categories
+Full category catalog — a flat list; build the tree client-side via `parent_id`.
+`aliases` is a comma-separated string.
+
+```json
+{
+  "data": [
+    { "id": "restaurant", "schema_type": "Restaurant", "label": "Restaurant", "parent_id": null, "aliases": "eatery,dining,food" },
+    { "id": "restaurant.italian", "schema_type": "ItalianCuisine", "label": "Italian Restaurant", "parent_id": "restaurant", "aliases": "italian,pizzeria,pizza place" }
+  ]
+}
+```
+
+---
+
+#### GET /health
+Health check. No auth required. Returns plain text `ok` (Content-Type text/plain).
+
+---
+
+### API Key Management (JWT auth)
+
+#### POST /api/v1/api-keys
+Create a new API key (also at legacy POST /api/v1/apikey/post). The full key is returned only once — store it securely.
+
+Request:
+```json
+{ "key_name": "My AI Agent - Production", "scopes": "businesses,search,analytics" }
+```
+
+Response:
+```json
+{
+  "api_key": "dxm_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
+  "key_name": "My AI Agent - Production",
+  "key_prefix": "dxm_a1b2",
+  "scopes": "businesses,search,analytics",
+  "message": "Store this key securely. It will not be shown again."
+}
+```
+
+#### GET /api/v1/api-keys
+List all API keys for the partner. Values are masked — only prefix shown.
+
+#### DELETE /api/v1/api-keys/{id}
+Immediately revoke an API key. Returns 204.
+
+#### POST /api/v1/api-keys/{id}/rotate
+Issue a new key; the old key keeps working for a 24-hour grace period, then expires. Returns the new key (shown once).
+
+---
+
+### Analytics API (JWT auth)
+
+#### GET /api/v1/analytics/{businessId}/overview
+Visibility summary: total queries, unique platforms, trend.
+
+Query: `?period=30d` (options: 7d, 30d, 90d, custom)
+
+#### GET /api/v1/analytics/{businessId}/queries
+Query volume time series.
+
+Query: `?period=30d&granularity=daily` (options: hourly, daily, weekly)
+
+#### GET /api/v1/analytics/{businessId}/platforms
+AI platform breakdown: which platforms query this business and how often.
+
+```json
+{
+  "data": [
+    { "platform": "ChatGPT", "query_count": 1247, "percentage": 43.8 },
+    { "platform": "Perplexity", "query_count": 612, "percentage": 21.5 }
+  ]
+}
+```
+
+#### GET /api/v1/analytics/{businessId}/trending
+Most popular search queries that led to this business.
+
+#### GET /api/v1/analytics/{businessId}/top-endpoints
+Which endpoints are queried most (hours, offerings, ai-context, etc.).
+
+#### GET /api/v1/analytics/{businessId}/reports
+List generated monthly visibility reports.
+
+#### GET /api/v1/analytics/{businessId}/reports/{reportId}
+Return a specific report as JSON (the monthly email is the print/PDF-friendly artifact).
+
+---
+
+## Data Models
+
+### Business
+Top-level entity. Fields: id, name, legal_name, alternate_names, slug, description, category_id, category (label), schema_type, status, verification_level (owner_verified, claimed, enriched_unverified, seed_data), completeness_score (0.0–1.0), version, price_range ($–$$$$), date_established, payment_accepted, languages_spoken, aggregate_rating (1.0–5.0), review_count, created_at, updated_at, verified_at. Contact fields (phone, phone_secondary, email, website, menu_url) are flattened onto the root.
+
+### Location
+street_address, address_line_2, city, region, postal_code, country (ISO 3166-1), latitude, longitude, timezone (IANA), location_type (storefront, service_area, hybrid, virtual), accessibility_notes.
+
+### Category
+Hierarchical. id (e.g. "restaurant.italian"), schema_type (schema.org), label, parent_id, aliases. 175+ categories total — 19 top-level with 150+ subcategories.
+
+### OperatingHours
+day_of_week (MON–SUN), opens (HH:MM), closes (HH:MM), is_closed, label. Multiple entries per day supported.
+
+### Offering / OfferingItem
+Groups (menu_section, service, product, package) containing items with name, description, price, currency, dietary_flags, availability.
+
+### AIContext
+ai_description, ai_summary, canonical_facts[], corrections[], query_hints[], key_differentiators[], tone_preferences {style, preferred_terms[], avoided_terms[]}.
+
+### Attributes
+Structured key-value: attribute_id, category (amenities, logistics, dining, accessibility, policies, healthcare, auto, retail, and more — 21 categories), label, value, detail.
+
+120+ predefined attributes across 21 categories — including wifi, outdoor_seating, live_music, private_rooms, ev_charging, parking, reservation_required, delivery, takeout, public_transport, dog_friendly, byob, dress_code, wheelchair_accessible, hearing_loop, braille_menu, service_animals, age_restriction, smoking, accepts_insurance, telehealth, languages_spoken, new_patients, emergency_services, appointment_required, loaner_car, warranty_work, and more.
+
+### StructuredAnswer
+question_id, question (human-readable), answer (business-written), category.
+
+40+ predefined questions covering logistics, amenities, recommendations, policies, accessibility, healthcare, and more.
+
+---
+
+## About Daxoom
+
+Daxoom is the authoritative data layer for the AI era. Businesses publish verified, structured data. AI platforms query the Daxoom API for accurate business information. One profile feeds every AI platform.
+
+What schema.org is to web crawlers, Daxoom is to AI models.
+
+Website: https://www.daxoom.com
+Register: https://app.daxoom.com/register
+API Docs: https://www.daxoom.com/docs/

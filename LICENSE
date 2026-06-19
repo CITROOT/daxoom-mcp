@@ -1,0 +1,28 @@
+Daxoom — License Notice
+Copyright (c) 2026 CITROOT LLC. All rights reserved.
+
+THE DAXOOM PLATFORM AND HOSTED SERVICE ARE PROPRIETARY.
+The Daxoom server software, data-processing pipeline, and operated data are
+proprietary to CITROOT LLC. They are provided only as a hosted service at
+daxoom.com and its subdomains, under the Daxoom API Terms. The server source is
+NOT licensed for self-hosting, redistribution, or the creation of derivative
+services.
+
+DATA.
+- Publicly-available business data (open data and public records) is public.
+- Owner-entered business data remains the property of the respective business;
+  it is contributed to Daxoom for the purpose of serving AI agents.
+- Daxoom-generated data (enrichment and computed signals) is proprietary to
+  CITROOT LLC.
+Use of API/MCP responses is governed by the Daxoom API Terms (https://daxoom.com).
+
+THIS REPOSITORY.
+The documentation, the MCP manifest (`mcp-server.json`, `server.json`), the
+OpenAPI specification, `llms.txt`, and the example configuration snippets in
+this repository are provided so developers can connect to the hosted Daxoom
+service. CITROOT LLC grants permission to use, copy, and adapt these example
+configuration snippets for the purpose of connecting to the Daxoom service. No
+other rights to the Daxoom platform, software, or operated data are granted.
+
+THE MATERIALS IN THIS REPOSITORY ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND. Contact: https://daxoom.com
