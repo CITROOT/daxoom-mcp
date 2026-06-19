@@ -1,5 +1,7 @@
 # Daxoom — AI-Visibility Business Data (MCP + REST)
 
+[![smithery badge](https://smithery.ai/badge/citroot/daxoom)](https://smithery.ai/servers/citroot/daxoom)
+
 > What schema.org is to web crawlers, Daxoom is to AI agents.
 
 **Daxoom** is a hosted, owner-verified business-data layer for AI agents. Every
