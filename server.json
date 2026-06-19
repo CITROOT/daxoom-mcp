@@ -1,7 +1,7 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "com.daxoom/daxoom",
-  "description": "Authoritative, owner-verified business data for AI agents. Search, full profiles, hours, offerings and prices, attributes, owner Q&A, and AI-grounding context — every response carries provenance (verification level, completeness, freshness, sources). 12 tools + 5 resources.",
+  "description": "Owner-verified local business data for AI agents: profiles, hours, prices, with provenance.",
   "version": "1.1.0",
   "repository": {
     "url": "https://github.com/CITROOT/daxoom-mcp",
